@@ -45,14 +45,12 @@ def send_notification_task(self, payload):
 def handle_sms(payload):
     time.sleep(10)
     logger.info(f"SMS to {payload['to']} successfully sent.")
-    print(f"SMS to {payload['to']} successfully sent.")
     update_status(payload["messageId"], "success")
 
 
 def handle_email(payload):
     time.sleep(10)
     logger.info(f"Email to {payload['to']} failed.")
-    print(f"Email to {payload['to']} failed.")
     payload["retry_count"] += 1
     send_notification_task.apply_async(args=[payload], queue="send_notification")
 
@@ -60,7 +58,6 @@ def handle_email(payload):
 def handle_push(payload):
     time.sleep(10)
     logger.info(f"SMS to {payload['to']} successfully sent.")
-    print(f"pushNotification to {payload['to']} successfully sent.")
     update_status(payload["messageId"], "success")
 
 
