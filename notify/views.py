@@ -69,14 +69,17 @@ class SendNotificationView(APIView):
         safe_payload = convert_objectid_to_str(payload)
 
         task_start = time.time()
-        send_notification_task.apply_async(args=[safe_payload], queue="send_notification")
-        task_end = time.time()
-        print(f"Celery task enqueue time: {task_end - task_start:.4f} seconds")
+        try:
+            send_notification_task.apply_async(args=[safe_payload], queue="send_notification")
+            task_end = time.time()
+            print(f"Celery task enqueue time: {task_end - task_start:.4f} seconds")
 
-        total_time = time.time() - start_time
-        print(f"Total request processing time: {total_time:.4f} seconds")
+            total_time = time.time() - start_time
+            print(f"Total request processing time: {total_time:.4f} seconds")
 
-        return Response({"messageId": message_id}, status=202)
+            return Response({"messageId": message_id}, status=202)
+        except:
+            return Response({"error": "internal error"}, status=500)
 
 
 class NotificationInquiry(APIView):
@@ -90,4 +93,16 @@ class NotificationInquiry(APIView):
             query["messageId"] = messageid
 
         cursor = notification_collection.find(query)
-        return Response(cursor, status=200)
+        notification_list = list(cursor)
+        output = []
+        for doc in notification_list:
+            # Convert ObjectId to string
+            doc_dict = {}
+            for key, value in doc.items():
+                if isinstance(value, ObjectId):
+                    doc_dict[key] = str(value)
+                else:
+                    doc_dict[key] = value
+            output.append(doc_dict)
+
+        return Response(output, status=200)

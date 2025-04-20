@@ -1,7 +1,10 @@
 from celery import shared_task
 import time
 from pymongo import MongoClient
-from celery import Celery
+import logging
+
+
+logger = logging.getLogger('notify')
 
 mongo_client = MongoClient("mongodb://localhost:27017", maxPoolSize=50)
 db = mongo_client["zibal_db"]
@@ -13,23 +16,18 @@ notification_collection = db["notification"]
     bind=True,
     max_retries=3,
     default_retry_delay=60,
-    rate_limit="100/m"
+    soft_time_limit=300,
+    time_limit=600
 )
 def send_notification_task(self, payload):
-    print('--------------------------------------------------------------------------------------')
+    logger.info(f"Processing notification: {payload}")
     retry_count = payload.get("retry_count", 0)
     message_id = payload.get("messageId")
     channel = payload.get("channel")
 
-    if retry_count > 3:
-        update_status(payload["messageId"], "failed")
-        print(f"[FAILED] Max retries exceeded for {message_id}")
-        return
-
     try:
         if retry_count > 3:
-            update_status(payload["messageId"], "failed")
-            print(f"[FAILED] Max retries exceeded for {message_id}")
+            update_status(message_id, "failed")
             return
 
         # Channel dispatch
@@ -46,12 +44,14 @@ def send_notification_task(self, payload):
 
 def handle_sms(payload):
     time.sleep(10)
+    logger.info(f"SMS to {payload['to']} successfully sent.")
     print(f"SMS to {payload['to']} successfully sent.")
     update_status(payload["messageId"], "success")
 
 
 def handle_email(payload):
     time.sleep(10)
+    logger.info(f"Email to {payload['to']} failed.")
     print(f"Email to {payload['to']} failed.")
     payload["retry_count"] += 1
     send_notification_task.apply_async(args=[payload], queue="send_notification")
@@ -59,6 +59,7 @@ def handle_email(payload):
 
 def handle_push(payload):
     time.sleep(10)
+    logger.info(f"SMS to {payload['to']} successfully sent.")
     print(f"pushNotification to {payload['to']} successfully sent.")
     update_status(payload["messageId"], "success")
 
