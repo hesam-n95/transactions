@@ -20,10 +20,10 @@ notification_collection = db["notification"]
     time_limit=600
 )
 def send_notification_task(self, payload):
-    logger.info(f"Processing notification: {payload}")
     retry_count = payload.get("retry_count", 0)
     message_id = payload.get("messageId")
     channel = payload.get("channel")
+    logger.info(f"Processing notification: {message_id}")
 
     try:
         if retry_count > 3:
