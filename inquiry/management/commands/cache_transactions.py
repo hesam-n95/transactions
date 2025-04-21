@@ -4,6 +4,10 @@ import jdatetime
 from datetime import datetime
 from collections import defaultdict
 from math import ceil
+from django.conf import settings
+import logging
+
+logger = logging.getLogger('cache')
 
 PERSIAN_MONTHS = {
     1: "فروردین", 2: "اردیبهشت", 3: "خرداد", 4: "تیر",
@@ -11,20 +15,20 @@ PERSIAN_MONTHS = {
     9: "آذر", 10: "دی", 11: "بهمن", 12: "اسفند"
 }
 
+mongo_client = MongoClient(settings.MONGO_URI, maxPoolSize=50)
+db = mongo_client[settings.MONGO_DB_NAME]
+transaction_collection = db["transaction"]
+transaction_summary_collection = db["transaction_summary"]
 
 class Command(BaseCommand):
     help = "Aggregate transaction data and store in transaction_summary collection"
 
     def handle(self, *args, **kwargs):
-        client = MongoClient("mongodb://localhost:27017")
-        db = client["zibal_db"]
-        source = db["transaction"]
-        target = db["transaction_summary"]
 
         # Clear previous cache
-        target.delete_many({})
+        transaction_summary_collection.delete_many({})
 
-        cursor = source.find({})
+        cursor = transaction_collection.find({})
         summaries = {
             "daily": defaultdict(int),
             "weekly": defaultdict(int),
@@ -57,14 +61,14 @@ class Command(BaseCommand):
         for mode in summaries:
             for (key, merchantId), count in summaries[mode].items():
                 amount = amount_summaries[mode][(key, merchantId)]
-                target.insert_one({
+                transaction_summary_collection.insert_one({
                     "mode": mode,
                     "type": "count",
                     "key": key,
                     "value": count,
                     "merchantId": merchantId
                 })
-                target.insert_one({
+                transaction_summary_collection.insert_one({
                     "mode": mode,
                     "type": "amount",
                     "key": key,
@@ -72,4 +76,5 @@ class Command(BaseCommand):
                     "merchantId": merchantId
                 })
 
+        logger.info("Cached summaries saved to 'transaction_summary'")
         self.stdout.write(self.style.SUCCESS("Cached summaries saved to 'transaction_summary'"))
