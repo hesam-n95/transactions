@@ -7,7 +7,6 @@ from datetime import datetime
 from notify.tasks import send_notification_task
 import logging
 from django.conf import settings
-import re
 
 mongo_client = MongoClient(settings.MONGO_URI, maxPoolSize=50)
 db = mongo_client[settings.MONGO_DB_NAME]
@@ -30,48 +29,60 @@ logger = logging.getLogger(__name__)
 class SendNotificationView(APIView):
     def post(self, request):
         data = request.data
-        channel = data.get("channel")
-        to = data.get("to")
+        channels = data.get("channels", [])
         message = data.get("message")
 
-        if not channel:
-            return Response({"error": "channel is mandatory"}, status=400)
-        if channel not in ["email", "sms", "pushNotification"]:
-            return Response({"error": "channel is not valid"}, status=400)
-
-        if not to:
-            return Response({"error": "to is mandatory"}, status=400)
-
-        if channel in ["sms", "pushNotification"]:
-            if not re.match(r"^0\d{10}$", to):
-                return Response({"error": "'to' must be a valid 11-digit number starting with 0"}, status=400)
-        elif channel == "email":
-            if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w{2,4}$", to):
-                return Response({"error": "'to' must be a valid email address"}, status=400)
+        if not isinstance(channels, list) or not channels:
+            return Response({"error": "channels must be a non-empty list"}, status=400)
 
         if not message:
             return Response({"error": "message is mandatory"}, status=400)
 
+        valid_channels = ["email", "sms", "bot"]
+
+        enriched_channels = []
+        for item in channels:
+            channel = item.get("channel")
+            to = item.get("to")
+            if not channel:
+                return Response({"error": "channel is mandatory"}, status=400)
+            elif channel not in valid_channels:
+                return Response({"error": "channel is mandatory"}, status=400)
+            elif not to:
+                return Response({"error": "to is mandatory"}, status=400)
+            else:
+                enriched_channels.append({
+                    "channel": channel,
+                    "to": to,
+                    "status": "pending"
+                })
+
         message_id = str(uuid4())
-        payload = {
-            "channel": channel,
-            "to": to,
+        creation_time = datetime.utcnow()
+
+        db_payload = {
+            "messageId": message_id,
             "message": message,
-            "creationDateTime": datetime.utcnow(),
-            "status": "pending",
-            "messageId": message_id
+            "channels": enriched_channels,
+            "creationDateTime": creation_time
         }
 
-        notification_collection.insert_one(payload)
+        notification_collection.insert_one(db_payload)
 
-        payload["retry_count"] = 0
-        safe_payload = convert_objectid_to_str(payload)
-
-        try:
+        for item in enriched_channels:
+            task_payload = {
+                "channel": item["channel"],
+                "to": item["to"],
+                "message": message,
+                "messageId": message_id,
+                "creationDateTime": creation_time,
+                "retry_count": 0
+            }
+            safe_payload = convert_objectid_to_str(task_payload)
             send_notification_task.apply_async(args=[safe_payload], queue="send_notification")
-            return Response({"messageId": message_id}, status=202)
-        except:
-            return Response({"error": "internal error"}, status=500)
+
+        return Response({"messageId": message_id}, status=202)
+
 
 
 class NotificationInquiry(APIView):

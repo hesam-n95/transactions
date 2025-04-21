@@ -3,14 +3,13 @@ import time
 from pymongo import MongoClient
 import logging
 from django.conf import settings
-
+from datetime import datetime
 
 logger = logging.getLogger('notify')
 
 mongo_client = MongoClient(settings.MONGO_URI, maxPoolSize=50)
 db = mongo_client[settings.MONGO_DB_NAME]
 notification_collection = db["notification"]
-
 
 @shared_task(
     name="send_notification_task",
@@ -24,19 +23,22 @@ def send_notification_task(self, payload):
     retry_count = payload.get("retry_count", 0)
     message_id = payload.get("messageId")
     channel = payload.get("channel")
-    logger.info(f"Processing notification: messageId={message_id}")
+    to = payload.get("to")
+
+    logger.info(f"Processing notification: {payload}")
 
     try:
         if retry_count > 3:
-            update_status(message_id, "failed")
+            update_status(message_id, channel, to, "failed")
             return
 
         if channel == "sms":
             handle_sms(payload)
         elif channel == "email":
             handle_email(payload)
-        elif channel == "pushNotification":
-            handle_push(payload)
+        elif channel == "bot":
+            handle_bot(payload)
+
     except Exception as exc:
         payload["retry_count"] = retry_count + 1
         raise self.retry(exc=exc, countdown=60 * payload["retry_count"])
@@ -45,7 +47,7 @@ def send_notification_task(self, payload):
 def handle_sms(payload):
     time.sleep(10)
     logger.info(f"SMS to {payload['to']} successfully sent.")
-    update_status(payload["messageId"], "success")
+    update_status(payload["messageId"], payload["channel"], payload["to"], "success")
 
 
 def handle_email(payload):
@@ -55,11 +57,31 @@ def handle_email(payload):
     send_notification_task.apply_async(args=[payload], queue="send_notification")
 
 
-def handle_push(payload):
+def handle_bot(payload):
     time.sleep(10)
-    logger.info(f"push notification to {payload['to']} successfully sent.")
-    update_status(payload["messageId"], "success")
+    logger.info(f"Bot message to {payload['to']} successfully sent.")
+    update_status(payload["messageId"], payload["channel"], payload["to"], "success")
 
 
-def update_status(message_id, new_status):
-    notification_collection.update_one({"messageId": message_id}, {"$set": {"status": new_status}})
+def update_status(message_id, channel, to, new_status):
+    if new_status == "success":
+        notification_collection.update_one(
+            {"messageId": message_id},
+            {
+                "$set": {
+                    "channels.$[channelItem].status": new_status,
+                    "channels.$[channelItem].sentTime": datetime.utcnow()
+                }
+            },
+            array_filters=[{"channelItem.channel": channel, "channelItem.to": to}]
+        )
+    else:
+        notification_collection.update_one(
+            {"messageId": message_id},
+            {
+                "$set": {
+                    "channels.$[channelItem].status": new_status
+                }
+            },
+            array_filters=[{"channelItem.channel": channel, "channelItem.to": to}]
+        )

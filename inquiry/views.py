@@ -29,17 +29,25 @@ class TransactionInquiryView(APIView):
             return Response({"error": "mode is not valid"}, status=400)
 
         merchant_id = request.GET.get('merchantId')
-
-        query = {}
+        match_stage = {}
         if merchant_id:
             try:
-                query["merchantId"] = ObjectId(merchant_id)
+                match_stage["merchantId"] = ObjectId(merchant_id)
             except Exception:
                 return Response({"error": "merchantId is not valid"}, status=400)
 
-        cursor = transaction_collection.find(query)
+        pipeline = [
+            {"$match": match_stage},
+            {"$project": {
+                "amount": 1,
+                "createdAt": 1
+            }}
+        ]
+
+        cursor = transaction_collection.aggregate(pipeline)
 
         grouped_data = defaultdict(int)
+
         for doc in cursor:
             created_at = doc.get("createdAt")
             if not created_at:
@@ -100,15 +108,20 @@ class CachedTransactionInquiryView(APIView):
 
         merchant_id = request.GET.get('merchantId')
 
-        query = {
+        match_stage = {
             "type": t_type,
-            "mode": mode,
+            "mode": mode
         }
 
         if merchant_id:
-            query["merchantId"] = merchant_id
+            match_stage["merchantId"] = merchant_id
 
-        cursor = transaction_summary_collection.find(query)
-        data = [{"key": doc["key"], "value": doc["value"]} for doc in cursor]
+        pipeline = [
+            {"$match": match_stage},
+            {"$project": {"_id": 0, "key": 1, "value": 1}}
+        ]
+
+        cursor = transaction_summary_collection.aggregate(pipeline)
+        data = list(cursor)
 
         return Response(data, status=200)
