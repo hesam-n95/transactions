@@ -2,12 +2,13 @@ from celery import shared_task
 import time
 from pymongo import MongoClient
 import logging
+from django.conf import settings
 
 
 logger = logging.getLogger('notify')
 
-mongo_client = MongoClient("mongodb://localhost:27017", maxPoolSize=50)
-db = mongo_client["zibal_db"]
+mongo_client = MongoClient(settings.MONGO_URI, maxPoolSize=50)
+db = mongo_client[settings.MONGO_DB_NAME]
 notification_collection = db["notification"]
 
 
@@ -45,7 +46,6 @@ def send_notification_task(self, payload):
 def handle_sms(payload):
     time.sleep(10)
     logger.info(f"SMS to {payload['to']} successfully sent.")
-    print("----------------------------------------------")
     update_status(payload["messageId"], "success")
 
 

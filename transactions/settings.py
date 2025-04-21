@@ -153,26 +153,31 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'log.log'),  # Places log.log in project root
-            'formatter': 'verbose',
+            'filename': os.path.join(BASE_DIR, 'logs.log'),  # Places log.log in project root
+            'formatter': 'simple',
         },
     },
     'loggers': {
         '': {  # Root logger - captures logs from all applications
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
         },
         'django': {
-            'handlers': ['file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
         'celery': {
-            'handlers': ['file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': False,
         },
         'notify': {  # Your app's logger
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'cache': {  # Your app's logger
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
