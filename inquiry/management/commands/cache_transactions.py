@@ -20,12 +20,12 @@ db = mongo_client[settings.MONGO_DB_NAME]
 transaction_collection = db["transaction"]
 transaction_summary_collection = db["transaction_summary"]
 
+
 class Command(BaseCommand):
     help = "Aggregate transaction data and store in transaction_summary collection"
 
     def handle(self, *args, **kwargs):
 
-        # Clear previous cache
         transaction_summary_collection.delete_many({})
 
         cursor = transaction_collection.find({})
@@ -57,7 +57,6 @@ class Command(BaseCommand):
                 summaries[mode][(key, merchant)] += 1
                 amount_summaries[mode][(key, merchant)] += doc.get("amount", 0)
 
-        # Insert into cache collection
         for mode in summaries:
             for (key, merchantId), count in summaries[mode].items():
                 amount = amount_summaries[mode][(key, merchantId)]

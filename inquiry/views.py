@@ -8,15 +8,14 @@ from collections import defaultdict
 from math import ceil
 from django.conf import settings
 
-
 mongo_client = MongoClient(settings.MONGO_URI, maxPoolSize=50)
 db = mongo_client[settings.MONGO_DB_NAME]
 transaction_collection = db["transaction"]
 transaction_summary_collection = db["transaction_summary"]
 
+
 class TransactionInquiryView(APIView):
     def get(self, request):
-        # Validate 'type'
         t_type = request.GET.get('type')
         if not t_type:
             return Response({"error": "type is mandatory"}, status=400)
@@ -29,10 +28,8 @@ class TransactionInquiryView(APIView):
         if mode not in ["daily", "weekly", "monthly"]:
             return Response({"error": "mode is not valid"}, status=400)
 
-        # Optional merchantId
         merchant_id = request.GET.get('merchantId')
 
-        # MongoDB query
         query = {}
         if merchant_id:
             try:
@@ -83,7 +80,6 @@ class TransactionInquiryView(APIView):
             elif t_type == "amount":
                 grouped_data[key] += doc.get("amount", 0)
 
-        # Format response
         response_data = [{"key": k, "value": v} for k, v in grouped_data.items()]
         return Response(response_data, status=200)
 

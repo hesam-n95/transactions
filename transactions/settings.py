@@ -124,11 +124,11 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-CELERY_BROKER_URL = 'redis://redis:6379/0'  # Or your actual broker URL
-CELERY_RESULT_BACKEND = 'redis://redis:6379/0'  # Optional but recommended
-CELERY_BROKER_CONNECTION_TIMEOUT = 10  # Set a reasonable timeout
-CELERY_BROKER_HEARTBEAT = 10  # Keep connection alive
-CELERY_BROKER_POOL_LIMIT = 100  # Connection pool limit
+CELERY_BROKER_URL = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_BROKER_CONNECTION_TIMEOUT = 10
+CELERY_BROKER_HEARTBEAT = 10
+CELERY_BROKER_POOL_LIMIT = 100
 MONGO_URI = "mongodb://mongodb:27017"
 MONGO_DB_NAME = "zibal_db"
 
@@ -153,12 +153,12 @@ LOGGING = {
         },
         'file': {
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'logs.log'),  # Places log.log in project root
+            'filename': os.path.join(BASE_DIR, 'logs.log'),
             'formatter': 'simple',
         },
     },
     'loggers': {
-        '': {  # Root logger - captures logs from all applications
+        '': {
             'handlers': ['console'],
             'level': 'INFO',
         },
@@ -172,12 +172,12 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
-        'notify': {  # Your app's logger
+        'notify': {
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': False,
         },
-        'cache': {  # Your app's logger
+        'cache': {
             'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': False,

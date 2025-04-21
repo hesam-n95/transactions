@@ -31,7 +31,6 @@ def send_notification_task(self, payload):
             update_status(message_id, "failed")
             return
 
-        # Channel dispatch
         if channel == "sms":
             handle_sms(payload)
         elif channel == "email":

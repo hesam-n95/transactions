@@ -4,10 +4,10 @@ from rest_framework.response import Response
 from pymongo import MongoClient
 from uuid import uuid4
 from datetime import datetime
-from notify.tasks import send_notification_task  # Celery task
-import time
+from notify.tasks import send_notification_task
 import logging
 from django.conf import settings
+import re
 
 mongo_client = MongoClient(settings.MONGO_URI, maxPoolSize=50)
 db = mongo_client[settings.MONGO_DB_NAME]
@@ -29,8 +29,6 @@ logger = logging.getLogger(__name__)
 
 class SendNotificationView(APIView):
     def post(self, request):
-        start_time = time.time()
-
         data = request.data
         channel = data.get("channel")
         to = data.get("to")
@@ -43,6 +41,13 @@ class SendNotificationView(APIView):
 
         if not to:
             return Response({"error": "to is mandatory"}, status=400)
+
+        if channel in ["sms", "pushNotification"]:
+            if not re.match(r"^0\d{10}$", to):
+                return Response({"error": "'to' must be a valid 11-digit number starting with 0"}, status=400)
+        elif channel == "email":
+            if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w{2,4}$", to):
+                return Response({"error": "'to' must be a valid email address"}, status=400)
 
         if not message:
             return Response({"error": "message is mandatory"}, status=400)
@@ -57,17 +62,13 @@ class SendNotificationView(APIView):
             "messageId": message_id
         }
 
-        mongo_start = time.time()
         notification_collection.insert_one(payload)
 
-        # Add retry_count for Celery
         payload["retry_count"] = 0
         safe_payload = convert_objectid_to_str(payload)
 
-        task_start = time.time()
         try:
             send_notification_task.apply_async(args=[safe_payload], queue="send_notification")
-
             return Response({"messageId": message_id}, status=202)
         except:
             return Response({"error": "internal error"}, status=500)
@@ -87,7 +88,6 @@ class NotificationInquiry(APIView):
         notification_list = list(cursor)
         output = []
         for doc in notification_list:
-            # Convert ObjectId to string
             doc_dict = {}
             for key, value in doc.items():
                 if isinstance(value, ObjectId):
