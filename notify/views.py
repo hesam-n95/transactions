@@ -7,9 +7,10 @@ from datetime import datetime
 from notify.tasks import send_notification_task  # Celery task
 import time
 import logging
+from django.conf import settings
 
-mongo_client = MongoClient("mongodb://localhost:27017", maxPoolSize=50)
-db = mongo_client["zibal_db"]
+mongo_client = MongoClient(settings.MONGO_URI, maxPoolSize=50)
+db = mongo_client[settings.MONGO_DB_NAME]
 notification_collection = db["notification"]
 
 
@@ -46,9 +47,6 @@ class SendNotificationView(APIView):
         if not message:
             return Response({"error": "message is mandatory"}, status=400)
 
-        validate_time = time.time()
-        print(f"Validation time: {validate_time - start_time:.4f} seconds")
-
         message_id = str(uuid4())
         payload = {
             "channel": channel,
@@ -61,8 +59,6 @@ class SendNotificationView(APIView):
 
         mongo_start = time.time()
         notification_collection.insert_one(payload)
-        mongo_end = time.time()
-        print(f"MongoDB insert time: {mongo_end - mongo_start:.4f} seconds")
 
         # Add retry_count for Celery
         payload["retry_count"] = 0
@@ -71,11 +67,6 @@ class SendNotificationView(APIView):
         task_start = time.time()
         try:
             send_notification_task.apply_async(args=[safe_payload], queue="send_notification")
-            task_end = time.time()
-            print(f"Celery task enqueue time: {task_end - task_start:.4f} seconds")
-
-            total_time = time.time() - start_time
-            print(f"Total request processing time: {total_time:.4f} seconds")
 
             return Response({"messageId": message_id}, status=202)
         except:

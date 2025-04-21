@@ -1,0 +1,69 @@
+services:
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - backend
+
+  mongorestore:
+    image: mongo
+    container_name: mongorestore
+    depends_on:
+      - mongodb
+    volumes:
+      - ./transaction.agz:/dump/transaction.agz
+    entrypoint: >
+      bash -c "
+      echo 'Waiting for MongoDB...';
+      until mongosh --host mongodb --eval 'db.runCommand({ ping: 1 })'; do sleep 2; done;
+      echo 'Dropping zibal_db if exists...';
+      mongosh --host mongodb --eval 'db.getMongo().getDB(\"zibal_db\").dropDatabase()';
+      echo 'Restoring database from transaction.agz...';
+      mongorestore --host mongodb --gzip --archive=/dump/transaction.agz
+      "
+    networks:
+      - backend
+
+  redis:
+    image: redis
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  web:
+    build: .
+    container_name: django
+    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/code
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - backend
+
+  celery:
+    build: .
+    container_name: celery
+    command: celery -A notify worker -l info -Q send_notification --pool=solo
+    volumes:
+      - .:/code
+    depends_on:
+      - redis
+      - web
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  mongo_data:

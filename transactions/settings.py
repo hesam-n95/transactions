@@ -124,11 +124,13 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Or your actual broker URL
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Optional but recommended
+CELERY_BROKER_URL = 'redis://redis:6379/0'  # Or your actual broker URL
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'  # Optional but recommended
 CELERY_BROKER_CONNECTION_TIMEOUT = 10  # Set a reasonable timeout
 CELERY_BROKER_HEARTBEAT = 10  # Keep connection alive
 CELERY_BROKER_POOL_LIMIT = 100  # Connection pool limit
+MONGO_URI = "mongodb://mongodb:27017"
+MONGO_DB_NAME = "zibal_db"
 
 
 LOGGING = {

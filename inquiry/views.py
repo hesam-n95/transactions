@@ -6,11 +6,12 @@ from bson.objectid import ObjectId
 from datetime import datetime
 from collections import defaultdict
 from math import ceil
+from django.conf import settings
 
 
-mongo_client = MongoClient("mongodb://localhost:27017", maxPoolSize=50)
-db = mongo_client["zibal_db"]
-transaction_collection = db["notification"]
+mongo_client = MongoClient(settings.MONGO_URI, maxPoolSize=50)
+db = mongo_client[settings.MONGO_DB_NAME]
+transaction_collection = db["transaction"]
 transaction_summary_collection = db["transaction_summary"]
 
 class TransactionInquiryView(APIView):

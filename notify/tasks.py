@@ -23,7 +23,7 @@ def send_notification_task(self, payload):
     retry_count = payload.get("retry_count", 0)
     message_id = payload.get("messageId")
     channel = payload.get("channel")
-    logger.info(f"Processing notification: {message_id}")
+    logger.info(f"Processing notification: messageId={message_id}")
 
     try:
         if retry_count > 3:
@@ -45,6 +45,7 @@ def send_notification_task(self, payload):
 def handle_sms(payload):
     time.sleep(10)
     logger.info(f"SMS to {payload['to']} successfully sent.")
+    print("----------------------------------------------")
     update_status(payload["messageId"], "success")
 
 
@@ -57,7 +58,7 @@ def handle_email(payload):
 
 def handle_push(payload):
     time.sleep(10)
-    logger.info(f"SMS to {payload['to']} successfully sent.")
+    logger.info(f"push notification to {payload['to']} successfully sent.")
     update_status(payload["messageId"], "success")
 
 
